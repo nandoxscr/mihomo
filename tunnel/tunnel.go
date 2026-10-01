@@ -351,7 +351,26 @@ func resolveMetadata(metadata *C.Metadata) (proxy C.Proxy, rule C.Rule, err erro
 		FindProcess: func() {
 			if attemptProcessLookup {
 				attemptProcessLookup = false
-				if !features.CMFA {
+				if features.XClashRev {
+					pkg, err := process.FindPackageName(metadata)
+					if err == nil && pkg != "" {
+						metadata.Process = pkg
+						return
+					}
+					// normal check for process (for root mode / proc fallback)
+					uid, path, err := process.FindProcessName(metadata.NetWork.String(), metadata.SrcIP, int(metadata.SrcPort))
+					if err != nil {
+						log.Debugln("[Process] find process error for %s: %v", metadata.String(), err)
+					} else {
+						metadata.Process = filepath.Base(path)
+						metadata.ProcessPath = path
+						metadata.Uid = uid
+
+						if pkg, err := process.FindPackageName(metadata); err == nil {
+							metadata.Process = pkg
+						}
+					}
+				} else if !features.CMFA {
 					// normal check for process
 					uid, path, err := process.FindProcessName(metadata.NetWork.String(), metadata.SrcIP, int(metadata.SrcPort))
 					if err != nil {
@@ -406,6 +425,11 @@ func resolveMetadata(metadata *C.Metadata) (proxy C.Proxy, rule C.Rule, err erro
 	// Rule
 	default:
 		proxy, rule, err = match(metadata, helper)
+	}
+
+	if helper.FindProcess != nil && FindProcessMode() != process.FindProcessOff {
+		helper.FindProcess()
+		helper.FindProcess = nil
 	}
 	return
 }
