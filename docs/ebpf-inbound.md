@@ -53,20 +53,38 @@ Android ARM64 builds are covered by `.github/workflows/build-ebpf.yml`.
 
 ## Configuration
 
+> **BREAKING CHANGE**: the top-level `mode: local/shared/hybrid` and the
+> top-level `bypass-rule-set` keys were removed. Enabling now uses only
+> `local.enable` / `shared.enable`, and bypass rule sets are configured
+> per scope as `local.bypass-rule-set` / `shared.bypass-rule-set`.
+> Configurations that still set `mode` or a top-level `bypass-rule-set`
+> are rejected at startup with an explicit error (the keys are still
+> decoded so the mistake cannot be silently ignored).
+> Migration:
+>
+> ```diff
+>   listeners:
+>     - name: ebpf-inbound
+>       type: ebpf
+> -      mode: local
+> -      bypass-rule-set:
+> -        - geoip-cn
+>        local:
+> +        enable: true
+> +        bypass-rule-set:
+> +          - geoip-cn
+>        shared:
+> +        enable: false
+> ```
+
 Add an `ebpf` listener to the `listeners` section:
 
 ```yaml
 listeners:
   - name: ebpf-inbound
     type: ebpf
-    # enablement: mode (local/shared/hybrid) OR explicit local.enable /
-    # shared.enable. When enable is present, mode must be omitted.
-    mode: local
-    network: [tcp, udp]
-    udp-timeout: 300
-    tc-priority: 1
-    bypass-rule-set:
-      - geoip-cn
+    # enablement: explicit local.enable / shared.enable toggles. With no
+    # explicit enablement, local interception is enabled by default.
     local:
       enable: true
       data-plane: cgroup      # cgroup (default) or tc
@@ -74,6 +92,8 @@ listeners:
       dns-mode: hijack        # hijack (default), respect_policy, or off
       ipv6: true
       bypass-private-address: true
+      bypass-rule-set:
+        - geoip-cn
       include-uid: []
       include-uid-range: []
       exclude-uid: []
@@ -90,6 +110,8 @@ listeners:
       dns-mode: hijack
       ipv6: true
       bypass-private-address: true
+      bypass-rule-set:
+        - geoip-cn
       include-source-cidr: []
       exclude-source-cidr: []
       include-mac-address: []
@@ -100,11 +122,12 @@ listeners:
 
 Field behavior:
 
-- `mode`: `local` (default), `shared`, or `hybrid`. Alternatively use
-  `local.enable` / `shared.enable` as independent toggles; mode cannot be
-  combined with them. `local.enable: true` enables only local interception,
-  `shared.enable: true` enables only shared interception, both enable hybrid.
+- enablement: use `local.enable` / `shared.enable` as independent toggles.
+  `local.enable: true` enables only local interception, `shared.enable: true`
+  enables only shared interception, enabling both enables hybrid. With no
+  explicit enablement, local interception is enabled by default (shared off).
 - `network`: `tcp`, `udp`, or both. Defaults to both when omitted.
+- `udp-timeout`: UDP timeout in seconds. Omitted or zero uses 300 seconds.
 - `local.data-plane`: `cgroup` (default) or `tc`. `cgroup` intercepts inner
   sockets connect()/sendmsg(); `tc` steers packets on the default interface.
 - `local.cgroup-path`: absolute cgroup v2 directory for the cgroup data plane;
@@ -113,11 +136,24 @@ Field behavior:
   or `off`. `hijack` force-rewrites port 53; `off` always passes 53.
 - `local.bypass-private-address`: private/groupcast/link-local destinations
   keep their real IP and pass in kernel. Default true.
+- `local.bypass-rule-set` / `shared.bypass-rule-set`: rule provider tags whose
+  internal CIDRs are published as pass decisions to the matching local or
+  shared data plane.
+  - Limitation: with `local.data-plane: cgroup`, the underlying sing-ebpf
+    backend enables the destination-CIDR bypass map only from the static pass
+    policy known when the backend is prepared (the private-address prefixes).
+    It does not re-derive that gate from the dynamic rule-set update, so a
+    configuration with `local.bypass-private-address: false` and only
+    `local.bypass-rule-set` writes the CIDRs to the map but the kernel never
+    consults them. Set `local.bypass-private-address: true` (the default) or
+    use `local.data-plane: tc`, which refreshes the gate on every update. A
+    startup warning is logged when this combination is detected.
+  - Rule-set CIDRs are applied on startup only after the rule providers have
+    loaded. Right after start there is a short window where the pass decisions
+    are not yet in place; the rule-set update callback fills them in.
 - `shared.data-plane`: `packet_rewrite` (default) or `socket_assign`.
 - `shared.interface`: the downstream interfaces to take over (hotspot). Must
   not be empty when shared is enabled, and must not contain `lo`.
-- `bypass-rule-set`: rule provider tags whose internal CIDRs are published as
-  pass decisions to every enabled data plane.
 - `include-uid`, `include-uid-range`, `exclude-uid`, `exclude-uid-range`:
   UID-based interception policy. Ranges use `start:end` syntax.
 - Android only: `include-android-user`, `include-package`, `exclude-package`.

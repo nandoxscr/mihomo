@@ -2,6 +2,7 @@ package inbound
 
 import (
 	"context"
+	"fmt"
 
 	C "github.com/metacubex/mihomo/constant"
 	LC "github.com/metacubex/mihomo/listener/config"
@@ -11,14 +12,18 @@ import (
 
 type EBPFOption struct {
 	BaseOption
-	Mode          string        `inbound:"mode,omitempty"`
-	Network       []string      `inbound:"network,omitempty"`
-	UDPTimeout    int64         `inbound:"udp-timeout,omitempty"`
-	TCPriority    uint16        `inbound:"tc-priority,omitempty"`
-	BypassRuleSet []string      `inbound:"bypass-rule-set,omitempty"`
-	FakeIPICMP    string        `inbound:"fakeip-icmp,omitempty"`
-	Local         LC.EBPFLocal  `inbound:"local,omitempty"`
-	Shared        LC.EBPFShared `inbound:"shared,omitempty"`
+	Network    []string      `inbound:"network,omitempty"`
+	UDPTimeout int64         `inbound:"udp-timeout,omitempty"`
+	TCPriority uint16        `inbound:"tc-priority,omitempty"`
+	FakeIPICMP string        `inbound:"fakeip-icmp,omitempty"`
+	Local      LC.EBPFLocal  `inbound:"local,omitempty"`
+	Shared     LC.EBPFShared `inbound:"shared,omitempty"`
+
+	// Removed top-level keys. They are kept only so the structure decoder
+	// captures them and NewEBPF can fail loudly; otherwise the decoder would
+	// silently drop them and bypass/enablement would silently stop working.
+	DeprecatedMode          string   `inbound:"mode,omitempty" json:"mode,omitempty"`
+	DeprecatedBypassRuleSet []string `inbound:"bypass-rule-set,omitempty" json:"bypass-rule-set,omitempty"`
 }
 
 func (o EBPFOption) Equal(config C.InboundConfig) bool {
@@ -33,6 +38,12 @@ type EBPF struct {
 }
 
 func NewEBPF(options *EBPFOption) (*EBPF, error) {
+	if options.DeprecatedMode != "" {
+		return nil, fmt.Errorf("ebpf inbound %q: top-level 'mode' is no longer supported; use local.enable / shared.enable", options.NameStr)
+	}
+	if len(options.DeprecatedBypassRuleSet) > 0 {
+		return nil, fmt.Errorf("ebpf inbound %q: top-level 'bypass-rule-set' is no longer supported; use local.bypass-rule-set / shared.bypass-rule-set", options.NameStr)
+	}
 	base, err := NewBase(&options.BaseOption)
 	if err != nil {
 		return nil, err
@@ -41,14 +52,12 @@ func NewEBPF(options *EBPFOption) (*EBPF, error) {
 		Base:   base,
 		config: options,
 		ebpf: LC.EBPF{
-			Mode:          options.Mode,
-			Network:       options.Network,
-			UDPTimeout:    options.UDPTimeout,
-			TCPriority:    options.TCPriority,
-			BypassRuleSet: options.BypassRuleSet,
-			FakeIPICMP:    options.FakeIPICMP,
-			Local:         options.Local,
-			Shared:        options.Shared,
+			Network:    options.Network,
+			UDPTimeout: options.UDPTimeout,
+			TCPriority: options.TCPriority,
+			FakeIPICMP: options.FakeIPICMP,
+			Local:      options.Local,
+			Shared:     options.Shared,
 		},
 	}, nil
 }
