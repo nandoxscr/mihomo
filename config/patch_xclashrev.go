@@ -36,7 +36,8 @@ var (
 		// Windows default LAN workgroup
 		"WORKGROUP",
 	}
-	xclashrevDefaultFakeIPRange = "28.0.0.0/8"
+	xclashrevDefaultFakeIPRange  = "28.0.0.0/8"
+	xclashrevDefaultFakeIPRange6 = "fd11:1111:1111::/48"
 )
 
 func init() {
@@ -67,10 +68,15 @@ func patchXClashRev(cfg *RawConfig) {
 		cfg.DNS.NameServer = xclashrevDefaultNameServers
 		cfg.DNS.EnhancedMode = C.DNSFakeIP
 		cfg.DNS.FakeIPRange = xclashrevDefaultFakeIPRange
+		cfg.DNS.FakeIPRange6 = xclashrevDefaultFakeIPRange6
 		cfg.DNS.FakeIPFilter = xclashrevDefaultFakeIPFilter
 		if cfg.Tun.FileDescriptor > 0 {
 			cfg.ClashForAndroid.AppendSystemDNS = true
 		}
+	}
+	// Inject fake-ip-range6 if subscription enables DNS but lacks it, otherwise AAAA queries return empty answers.
+	if cfg.DNS.Enable && cfg.DNS.EnhancedMode == C.DNSFakeIP && cfg.DNS.FakeIPRange6 == "" {
+		cfg.DNS.FakeIPRange6 = xclashrevDefaultFakeIPRange6
 	}
 	if cfg.Tun.FileDescriptor > 0 && cfg.ClashForAndroid.AppendSystemDNS {
 		cfg.DNS.NameServer = append(cfg.DNS.NameServer, "system://")
