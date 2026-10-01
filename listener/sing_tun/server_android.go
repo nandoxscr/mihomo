@@ -68,11 +68,24 @@ func (l *Listener) buildAndroidRules(tunOptions *tun.Options) error {
 }
 
 func findPackageName(metadata *constant.Metadata) (string, error) {
+	// First, try resolving via VPN IPC bridge (active in VPN mode)
+	if metadata.Uid == 0 {
+		if uid, pkg, err := resolveFromVpnBridge(metadata); err == nil && uid > 0 {
+			metadata.Uid = uid
+			if pkg != "" {
+				return pkg, nil
+			}
+		}
+	}
+
 	packageManager, err := getPackageManager()
 	if err != nil {
 		return "", err
 	}
 	uid := metadata.Uid
+	if uid == 0 {
+		return "", errors.New("uid not found")
+	}
 	if sharedPackage, loaded := packageManager.SharedPackageByID(uid % 100000); loaded {
 		return sharedPackage, nil
 	}
