@@ -34,6 +34,7 @@ import (
 var (
 	version                       bool
 	testConfig                    bool
+	prefetch                      bool
 	geodataMode                   bool
 	homeDir                       string
 	configFile                    string
@@ -50,6 +51,9 @@ var (
 	postUp                        string
 	postDown                      string
 )
+
+// prefetchRunner is assigned by prefetch_xclashrev.go (//go:build xclashrev).
+var prefetchRunner func(configBytes []byte) int
 
 func getIntEnv(key string) int {
 	value := os.Getenv(key)
@@ -75,6 +79,7 @@ func init() {
 	flag.BoolVar(&geodataMode, "m", false, "set geodata mode")
 	flag.BoolVar(&version, "v", false, "show current version of mihomo")
 	flag.BoolVar(&testConfig, "t", false, "test configuration and exit")
+	flag.BoolVar(&prefetch, "prefetch", false, "prefetch all HTTP providers to local cache and exit (xclashrev tag only)")
 	flag.Parse()
 }
 
@@ -189,6 +194,14 @@ func main() {
 		}
 		fmt.Printf("configuration file %s test is successful\n", C.Path.Config())
 		return
+	}
+
+	if prefetch {
+		if prefetchRunner == nil {
+			fmt.Println("prefetch requires xclashrev build tag")
+			os.Exit(2)
+		}
+		os.Exit(prefetchRunner(configBytes))
 	}
 
 	var options []hub.Option
