@@ -235,6 +235,12 @@ func ParseProxy(mapping map[string]any, options ...ProxyOption) (C.Proxy, error)
 	}
 
 	if err != nil {
+		name, _ := mapping["name"].(string)
+		if name != "" {
+			log.Warnln("failed to parse proxy %s (%s): %v, falling back to reject", name, proxyType, err)
+			rejectOption := &outbound.RejectOption{BasicOption: basicOption, Name: name}
+			return NewProxy(outbound.NewRejectWithOption(*rejectOption)), nil
+		}
 		return nil, err
 	}
 
