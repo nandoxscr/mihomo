@@ -1,10 +1,9 @@
-//go:build with_ebpf && android && !cmfa && !xclashrev
+//go:build with_ebpf && android && xclashrev
 
 package sing_ebpf
 
 import (
 	"github.com/metacubex/mihomo/listener/sing_tun"
-
 	tun "github.com/metacubex/sing-tun"
 )
 

@@ -1,4 +1,4 @@
-//go:build with_ebpf && android && cmfa
+//go:build with_ebpf && android && cmfa && !xclashrev
 
 package sing_ebpf
 
