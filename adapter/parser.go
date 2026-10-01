@@ -6,6 +6,7 @@ import (
 	"github.com/metacubex/mihomo/adapter/outbound"
 	"github.com/metacubex/mihomo/common/structure"
 	C "github.com/metacubex/mihomo/constant"
+	"github.com/metacubex/mihomo/log"
 )
 
 func ParseProxy(mapping map[string]any, options ...ProxyOption) (C.Proxy, error) {
@@ -224,7 +225,13 @@ func ParseProxy(mapping map[string]any, options ...ProxyOption) (C.Proxy, error)
 		}
 		proxy, err = outbound.NewEasyTier(*easyTierOption)
 	default:
-		return nil, fmt.Errorf("unsupport proxy type: %s", proxyType)
+		name, _ := mapping["name"].(string)
+		if name == "" {
+			return nil, fmt.Errorf("unsupport proxy type: %s", proxyType)
+		}
+		log.Warnln("unsupported proxy type %s for %s, falling back to reject", proxyType, name)
+		rejectOption := &outbound.RejectOption{BasicOption: basicOption, Name: name}
+		proxy = outbound.NewRejectWithOption(*rejectOption)
 	}
 
 	if err != nil {
