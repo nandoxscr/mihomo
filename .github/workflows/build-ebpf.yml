@@ -1,13 +1,6 @@
 name: Build eBPF branch
 
 on:
-  push:
-    branches:
-      - ebpf-inbound
-      - "automation/ebpf-*"
-  pull_request:
-    branches:
-      - ebpf-inbound
   workflow_dispatch:
 
 permissions:

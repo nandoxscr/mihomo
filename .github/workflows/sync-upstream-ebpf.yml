@@ -7,8 +7,6 @@ on:
         description: Upstream branch
         required: true
         default: Alpha
-  schedule:
-    - cron: "17 */6 * * *"
 
 concurrency:
   group: sync-upstream-ebpf
