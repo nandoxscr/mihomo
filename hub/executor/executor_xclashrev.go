@@ -10,28 +10,37 @@ import (
 	"github.com/metacubex/mihomo/tunnel"
 )
 
-// ApplyConfigOffline initializes proxies, providers, and DNS without starting
+// ApplyConfigOffline initializes proxies, providers, and profile without starting
 // inbound listeners (HTTP, SOCKS, Mixed), TUN devices, or IPTables rules.
-// This allows querying proxies, groups, providers, and testing latency
-// before the VPN/proxy tunnel service is started.
 func ApplyConfigOffline(cfg *config.Config) {
 	mux.Lock()
 	defer mux.Unlock()
-	log.SetLevel(cfg.General.LogLevel)
+	if cfg.General != nil {
+		log.SetLevel(cfg.General.LogLevel)
+	}
 
 	tunnel.OnSuspend()
 
-	updateExperimental(cfg.Experimental)
-	updateUsers(cfg.Users)
+	if cfg.Experimental != nil {
+		updateExperimental(cfg.Experimental)
+	}
 	updateProxies(cfg.Proxies, cfg.Providers)
-	updateGeneral(cfg.General, false)
-	updateDNS(cfg.DNS, cfg.General.IPv6)
+	updateRules(nil, nil, cfg.RuleProviders)
+	if cfg.General != nil {
+		updateGeneral(cfg.General, false)
+	}
+	if cfg.DNS != nil {
+		updateDNS(cfg.DNS, cfg.General != nil && cfg.General.IPv6)
+	}
 
 	tunnel.OnInnerLoading()
 
 	initInnerTcp()
-	loadProvider(cfg.Providers)
-	updateProfile(cfg)
+	if cfg.Profile != nil {
+		updateProfile(cfg)
+	}
+	go loadProvider(cfg.Providers)
+	go loadProvider(cfg.RuleProviders)
 	runtime.GC()
 	tunnel.OnRunning()
 }
