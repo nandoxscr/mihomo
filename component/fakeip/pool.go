@@ -99,6 +99,7 @@ func (p *Pool) CloneFrom(o *Pool) {
 	// the allocation state only matches the cloned entries if both pools cover the same range
 	if o.first == p.first && o.last == p.last {
 		p.offset, p.cycle = o.offset, o.cycle
+		p.StoreState()
 	}
 }
 
@@ -115,6 +116,7 @@ func (p *Pool) get(host string) netip.Addr {
 	}
 
 	p.store.PutByIP(p.offset, host)
+	p.StoreState()
 	return p.offset
 }
 
@@ -148,8 +150,6 @@ func (p *Pool) restoreState() {
 			} else {
 				_ = p.FlushFakeIP()
 			}
-		} else if s.Exist(p.first) {
-			_ = p.FlushFakeIP()
 		}
 	}
 }

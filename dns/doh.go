@@ -386,12 +386,8 @@ func (doh *dnsOverHTTPS) createTransport(ctx context.Context) (t http.RoundTripp
 	// http.Transport dials in a context detached from the request, so a dial
 	// that the query has given up on must still end on its own.
 	transport := &http.Transport{
-		DisableCompression: true,
-		DialContext: func(ctx context.Context, network, addr string) (net.Conn, error) {
-			ctx, cancel := context.WithTimeout(ctx, dialTimeout)
-			defer cancel()
-			return doh.dialer.DialContext(ctx, network, addr)
-		},
+		DisableCompression:  true,
+		DialContext:         doh.dialer.DialContext,
 		IdleConnTimeout:     transportDefaultIdleConnTimeout,
 		TLSHandshakeTimeout: dialTimeout,
 	}

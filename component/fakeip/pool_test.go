@@ -239,6 +239,43 @@ func TestPool_CloneKeepsAllocationState(t *testing.T) {
 	assert.Equal(t, "foo.com", host)
 }
 
+func TestPool_CloneKeepsAllocationStatePersistent(t *testing.T) {
+	ipnet := netip.MustParsePrefix("192.168.0.1/24")
+	f, err := os.CreateTemp("", "mihomo-test-*")
+	assert.NoError(t, err)
+	defer os.Remove(f.Name())
+
+	db, err := bbolt.Open(f.Name(), 0o666, &bbolt.Options{Timeout: time.Second, NoStatistics: true})
+	assert.NoError(t, err)
+	defer db.Close()
+
+	cf := &cachefile.CacheFile{DB: db}
+	pool, err := New(Options{IPNet: ipnet, Size: 10})
+	assert.NoError(t, err)
+	pool.store = newCachefileStore(cf, ipnet)
+
+	foo := pool.Lookup("foo.com")
+	bar := pool.Lookup("bar.com")
+
+	newPool, err := New(Options{IPNet: ipnet, Size: 10})
+	assert.NoError(t, err)
+	newPool.store = newCachefileStore(cf, ipnet)
+	newPool.restoreState()
+	newPool.CloneFrom(pool)
+
+	host, ok := newPool.LookBack(foo)
+	assert.True(t, ok)
+	assert.Equal(t, "foo.com", host)
+
+	host, ok = newPool.LookBack(bar)
+	assert.True(t, ok)
+	assert.Equal(t, "bar.com", host)
+
+	baz := newPool.Lookup("baz.com")
+	assert.NotEqual(t, foo, baz)
+	assert.NotEqual(t, bar, baz)
+}
+
 func TestPool_Error(t *testing.T) {
 	ipnet := netip.MustParsePrefix("192.168.0.1/31")
 	_, err := New(Options{
